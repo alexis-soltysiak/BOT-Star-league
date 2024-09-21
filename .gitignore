@@ -1,0 +1,9 @@
+# Fichiers Python compilés
+__pycache__/
+*.py[cod]
+
+# Environnements virtuels
+envswl/
+
+# Fichiers de configuration
+.env
