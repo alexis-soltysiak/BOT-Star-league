@@ -1,7 +1,6 @@
 # models.py
-
-from sqlalchemy import Column, Integer, String, ForeignKey,Boolean
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func,Boolean
 
 Base = declarative_base()
 
@@ -46,3 +45,4 @@ class Match(Base):
     avantage_red = Column(String, nullable=False)
     kp_blue = Column(Integer, nullable=False)
     kp_red = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

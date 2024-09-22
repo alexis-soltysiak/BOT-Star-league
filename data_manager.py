@@ -11,6 +11,7 @@ from bdd.db_config import SessionLocal
 from bdd.models import Base,Player, Match
 import os
 from dotenv import load_dotenv
+from typing import Optional, Tuple
 
 """
 
@@ -40,7 +41,7 @@ class DataManagerFunctions:
     def close_connection(self):
         self.db.close()
 
-    # Méthodes pour gérer les joueurs
+    # PLAYERS
     def add_player(self, player: Player):
         with self.db() as session:
             session.add(player)
@@ -54,12 +55,24 @@ class DataManagerFunctions:
     def get_player_info(self, pseudo: str) -> Player | None:
         with self.db() as session:
             return session.query(Player).filter(Player.pseudo == pseudo).first()
-    
+
+    def get_all_player_pseudos(self) -> list[str]:
+        with self.db() as session:
+            return [pseudo for (pseudo,) in session.query(Player.pseudo).all()]
+
+    def get_league_and_group_by_pseudo(self, pseudo: str) -> Optional[Tuple[str, str]]:
+        with self.db() as session:
+            player = session.query(Player).filter(Player.pseudo == pseudo).first()
+            if player:
+                return (player.ligue, player.poule)
+            return None
+
     def get_player_info_by_iddiscord(self, iddiscord: str) -> Player | None:
         with self.db() as session:
             return session.query(Player).filter(Player.iddiscord == iddiscord).first()
 
-    # Méthodes pour gérer les matchs
+
+    # MATCHS
     def add_match(self, match: Match):
         with self.db() as session:
             session.add(match)
@@ -69,7 +82,11 @@ class DataManagerFunctions:
     def load_matches(self) -> list[Match]:
         with self.db() as session:
             return session.query(Match).all()
-
+        
+    def load_latest_matches(self, limit: int = 3) -> list[Match]:
+        with self.db() as session:
+            return session.query(Match).order_by(Match.created_at.desc()).limit(limit).all()
+        
     def load_matches_from_ligue(self,ligue: str) -> list[Match]:
         with self.db() as session:
             return session.query(Match).filter(Match.ligue == ligue).all()
