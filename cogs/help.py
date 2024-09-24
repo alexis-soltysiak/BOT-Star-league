@@ -97,6 +97,13 @@ class Misc(commands.Cog):
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
+
+def add_banner_to_embed(embed: discord.Embed, filename: str = "baniere.png") -> discord.Embed:
+    embed.set_image(url=f"attachment://{filename}")
+    return embed
+
+
+
 async def setup(bot: commands.bot.Bot):
     guild = await bot.fetch_guild(Utilities.get_guild_id())
     await bot.add_cog(Misc(bot, guild))

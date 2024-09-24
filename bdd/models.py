@@ -21,7 +21,7 @@ class Player(Base):
     display_name = Column(String, nullable=False)
     ligue = Column(String, nullable=False)
     poule = Column(String, nullable=False)
-    armee = Column(String, nullable=False)
+    faction = Column(String, nullable=False)
     liste = Column(String, nullable=False)
     is_admin = Column(String, nullable=False)
 

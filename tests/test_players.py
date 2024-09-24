@@ -9,7 +9,7 @@ def test_add_and_load_players():
         iddiscord="123456789012345678",
         displayname="Test Display",
         poule="A",
-        armee="ArméeTest",
+        faction="ArméeTest",
         liste="ListeTest"
     )
     DataManager.add_player(new_player)

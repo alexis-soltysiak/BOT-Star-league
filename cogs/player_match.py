@@ -12,7 +12,7 @@ from bdd.db_config import SessionLocal  # Assurez-vous que le chemin est correct
 from bdd.models import Admin
 import logging
 from thefuzz import process  # Importer la fonction de correspondance
-
+from cogs.help import add_banner_to_embed
 
 from variables import *
 
@@ -310,36 +310,65 @@ class RedPlayerModal(Modal):
 # Embed
 ################################################################################################################
 
-
-
 def get_open_matches_embed(matches: list[Match]) -> discord.Embed:
-    embed = discord.Embed(title="Résultats des derniers Matchs",
-                          colour=0x2b2d31)
+    embed = discord.Embed(
+        title="Résultats des derniers Matchs",
+        colour=0x2b2d31
+    )
     
-    for match in matches:
-        if match.color_winner and match.color_winner.lower() == "blue":
-            embed.add_field(
-                name      = "🎡 Poule",
-                value     = f"🔵 ` {match.player_blue} 🎖️{match.kp_blue} ` 🏆 ⚔️ ` {match.kp_red}🎖️ {match.player_red} `🔴",
-                inline=False
-            )
-        elif match.color_winner and match.color_winner.lower() == "red":
-            embed.add_field(
-                name      = "🎡 Poule",
-                value     = f"🔵 ` {match.player_blue} 🎖️{match.kp_blue} ` ⚔️ 🏆 ` {match.kp_red}🎖️ {match.player_red} ` 🔴",
-                inline=False
-            )
-        else:
-            embed.add_field(
-                name      = "🎡 Poule",
-                value     = f"` {match.player_blue} ` ⚔️ ` {match.player_red} `",
-                inline=False
-            )
-
-    if not embed.fields:
-        embed.add_field(name="❌ Aucun match ouvert enregistré", value="", inline=False)
-
+    if matches:
+        # Initialisation des colonnes
+        blue_column   = "**🔵 Joueur**\n"
+        vs_column     = "**\u0020**\n"
+        red_column    = "**🔴 Joueur**\n"
+        
+        for match in matches:
+            # Colonne Joueur Bleu
+            blue_info = f"`{match.player_blue} 🎖️{match.vp_blue}`"
+            blue_column += f"{blue_info}\n"
+            
+            # Colonne vs avec symboles selon le gagnant
+            if match.color_winner and match.color_winner.lower() == "blue":
+                vs_info = f"🏆 {match.status} 🧸"
+            elif match.color_winner and match.color_winner.lower() == "red":
+                vs_info = f"🧸 {match.status} 🏆"
+            else:
+                vs_info = f"🧸 {match.status} 🧸"
+            vs_column += f"{vs_info}\n"
+            
+            # Colonne Joueur Rouge
+            red_info = f"`{match.player_red} 🎖️{match.vp_red}`"
+            red_column += f"{red_info}\n"
+        
+        # Ajout des champs à l'embed
+        embed.add_field(
+            name="\u200b",  # Nom vide pour aligner les colonnes correctement
+            value=blue_column,
+            inline=True
+        )
+        embed.add_field(
+            name="\u200b",
+            value=vs_column,
+            inline=True
+        )
+        embed.add_field(
+            name="\u200b",
+            value=red_column,
+            inline=True
+        )
+    else:
+        embed.add_field(
+            name="❌ Aucun match ouvert enregistré",
+            value="",
+            inline=False
+        )
+    
+    # Ajouter la bannière à l'embed
+    add_banner_to_embed(embed)
+    
     return embed
+
+
 
 ################################################################################################################
 # Views
@@ -407,7 +436,7 @@ class RedPlayerInfoButton(Button):
 
 class ValidateButton(Button):
     def __init__(self, match: Match, view: discord.ui.View):
-        super().__init__(label="Valider et Enregistrer", style=ButtonStyle.success)
+        super().__init__(label="Valider et Enregistrer", style=ButtonStyle.secondary)
         self.match = match
 
     async def callback(self, interaction: discord.Interaction):
@@ -417,10 +446,10 @@ class ValidateButton(Button):
             
             if self.match.status == "poule":
                 ligue_blue , poule_blue = DataManager.get_league_and_group_by_pseudo(self.match.player_blue)
-                ligue_rouge , poule_red = DataManager.get_league_and_group_by_pseudo(self.match.player_blue)
-                if ligue_blue == ligue_rouge and poule_blue == poule_red:
+                ligue_red , poule_red = DataManager.get_league_and_group_by_pseudo(self.match.player_blue)
+                if ligue_blue == ligue_red and poule_blue == poule_red:
                     ligue_entered = ligue_blue
-                    poule_entered = ligue_rouge
+                    poule_entered = ligue_red
                 else : 
                     await interaction.response.send_message(
                         f"Une erreur s'est produite lors de l'enregistrement du match : {e}\n Les deux joueurs ne sont pas dans la meme ligue pour un match de poule",
@@ -442,7 +471,7 @@ class ValidateButton(Button):
 
             new_match = Match(
                 status                 = self.match.status,
-                ligue_entered          = ligue_entered,
+                ligue                  = ligue_entered,
                 poule                  = poule_entered,
                 player_blue            = self.match.player_blue,
                 player_red             = self.match.player_red,
@@ -478,31 +507,64 @@ class ValidateButton(Button):
 
         # Créer un embed avec les détails du match
         embed = discord.Embed(
-            title="Nouveau Match Enregistré",
-            description=f"**{new_match.player_blue}** vs **{new_match.player_red}**",
+            title=f"**🔵 {new_match.player_blue}** vs **{new_match.player_red} 🔴**",
+            description=f"\u0085",
             color=discord.Color.green(),
             timestamp=new_match.created_at
-        )
-        embed.add_field(name="Statut", value=new_match.status, inline=True)
-        embed.add_field(name="Ligue", value=new_match.ligue, inline=True)
-        embed.add_field(name="Poule", value=new_match.poule, inline=True)
-        embed.add_field(name="Gagnant", value=new_match.player_winner or "N/A", inline=True)
-        embed.add_field(name="Couleur Gagnant", value=new_match.color_winner or "N/A", inline=True)
-        embed.add_field(name="VP Bleu", value=new_match.vp_blue, inline=True)
-        embed.add_field(name="VP Rouge", value=new_match.vp_red, inline=True)
-        embed.add_field(name="KP Bleu", value=new_match.kp_blue, inline=True)
-        embed.add_field(name="KP Rouge", value=new_match.kp_red, inline=True)
-        embed.add_field(name="Objectif Primaire", value=new_match.objective_primary, inline=False)
-        embed.add_field(name="Objectif Secondaire", value=new_match.objective_secondary, inline=False)
-        embed.add_field(name="Avantage Bleu", value=new_match.avantage_blue, inline=True)
-        embed.add_field(name="Avantage Rouge", value=new_match.avantage_red, inline=True)
+        ) 
 
-        # Envoyer l'embed dans le canal de résultats
+        embed.add_field(name="💎 Statut", value=new_match.status, inline=True)
+        embed.add_field(name="🌍 Ligue", value=new_match.ligue, inline=True)
+        embed.add_field(name="🎡 Poule", value=new_match.poule, inline=True)
+        embed.add_field(name="🏆 Gagnant", value=new_match.player_winner or "N/A", inline=True)
+        embed.add_field(name="🥇 Obj. Primaire", value=new_match.objective_primary, inline=True)
+        embed.add_field(name="🥈 Obj. Secondaire", value=new_match.objective_secondary, inline=True)
+        embed.add_field(name="🔵🎖️ VP ", value=new_match.vp_blue, inline=True)
+        embed.add_field(name="🔵 KP ", value=new_match.kp_blue, inline=True)
+        embed.add_field(name="🔵 Avantage ", value=new_match.avantage_blue, inline=True)
+        embed.add_field(name="🔴🎖️ VP ", value=new_match.vp_red, inline=True)
+        embed.add_field(name="🔴 KP ", value=new_match.kp_red, inline=True)
+        embed.add_field(name="🔴 Avantage ", value=new_match.avantage_red, inline=True)
+
+       # Ajouter la bannière à l'embed
+        add_banner_to_embed(embed)
+
+        # Créer un fichier Discord à partir de l'image locale
         try:
-            await resultat_channel.send(embed=embed)
+            with open("media/baniere.png", "rb") as f:
+                banner_file = discord.File(f, filename="baniere.png")
+        except FileNotFoundError:
+            logging.error("Le fichier 'media/baniere.png' n'a pas été trouvé.")
+            await interaction.response.send_message(
+                "Le fichier de bannière n'a pas été trouvé. Veuillez contacter l'administrateur.",
+                ephemeral=True
+            )
+            return
+        except Exception as e:
+            logging.error(f"Erreur lors de la lecture de 'media/baniere.png' : {e}")
+            await interaction.response.send_message(
+                "Une erreur est survenue lors de la lecture du fichier de bannière.",
+                ephemeral=True
+            )
+            return
+
+        # Envoyer l'embed avec l'image attachée dans le canal de résultats
+        try:
+            await resultat_channel.send(embed=embed, file=banner_file)
         except Exception as e:
             logging.error(f"Failed to send message to channel {RESULTAT_CHANEL_ID}: {e}")
+            await interaction.response.send_message(
+                "Une erreur est survenue lors de l'envoi du message dans le canal de résultats.",
+                ephemeral=True
+            )
+            return
 
+        # Clôturer la view en éditant le message original
+        await interaction.response.edit_message(
+            content="Match enregistré avec succès !",
+            embed=None,  # Vous pouvez conserver l'embed original si nécessaire
+            view=None  # Retirer la view pour désactiver les boutons
+        )
 
 ################################################################################################################
 # Commande
@@ -522,13 +584,35 @@ class PlayerMatch(commands.Cog):
         view = MatchInfoView(new_match)  
         last_matches = DataManager.load_latest_matches(limit=3)  
         embed = get_open_matches_embed(last_matches)
+        # Ajouter la bannière à l'embed
+        add_banner_to_embed(embed)
+
+        # Créer un fichier Discord à partir de l'image locale
+        try:
+            with open("media/baniere.png", "rb") as f:
+                banner_file = discord.File(f, filename="baniere.png")
+        except FileNotFoundError:
+            logging.error("Le fichier 'media/baniere.png' n'a pas été trouvé.")
+            await interaction.response.send_message(
+                "Le fichier de bannière n'a pas été trouvé. Veuillez contacter l'administrateur.",
+                ephemeral=True
+            )
+            return
+        except Exception as e:
+            logging.error(f"Erreur lors de la lecture de 'media/baniere.png' : {e}")
+            await interaction.response.send_message(
+                "Une erreur est survenue lors de la lecture du fichier de bannière.",
+                ephemeral=True
+            )
+            return
+
         await interaction.response.send_message(
             "Ajoutez un match",
-            embed=embed,  
+            embed=embed,
             view=view,
+            file=banner_file,  
             ephemeral=True
         )
-
 
 async def setup(bot: commands.bot.Bot):
     await bot.add_cog(PlayerMatch(bot))
