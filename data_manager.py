@@ -40,7 +40,12 @@ class DataManagerFunctions:
     def get_all_player_pseudos(self) -> list[str]:
         with self.db() as session:
             return [pseudo for (pseudo,) in session.query(Player.pseudo).all()]
-
+        
+    def get_display_name_by_pseudo(self, pseudo: str) -> str:
+        with self.db() as session:
+            player = session.query(Player).filter(Player.pseudo == pseudo).first()
+            return player.display_name if player else None
+        
     def get_league_and_group_by_pseudo(self, pseudo: str) -> Optional[Tuple[str, str]]:
         with self.db() as session:
             player = session.query(Player).filter(Player.pseudo == pseudo).first()
@@ -80,6 +85,17 @@ class DataManagerFunctions:
         with self.db() as session:
             last_match = session.query(Match).order_by(Match.id.desc()).first()
             return last_match.id + 1 if last_match else 1
-
+        
+    def match_exists(self, player_blue: str, player_red: str, status: str) -> bool:
+        """
+        Vérifie si un match avec les mêmes player_blue, player_red et status existe déjà.
+        """
+        with self.db() as session:
+            match = session.query(Match).filter(
+                Match.player_blue == player_blue,
+                Match.player_red == player_red,
+                Match.status == status
+            ).first()
+            return match is not None
 
 DataManager = DataManagerFunctions()

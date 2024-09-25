@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 
 from utilities import Utilities
-
+from help.help_functions import *
 
 class Misc(commands.Cog):
     def __init__(self, bot: commands.bot.Bot, guild: discord.Guild):
@@ -26,7 +26,7 @@ class Misc(commands.Cog):
         else:
             print("Pas de rôle pour 'Membre'")
         
-    """
+
     
     @app_commands.command(name="help",
                           description="Rappelle le nom des commandes disponibles ainsi que leur description")
@@ -35,46 +35,62 @@ class Misc(commands.Cog):
             content = f.read()
 
         await interaction.response.send_message(content=content, ephemeral=True)
+    """
+
 
     @app_commands.command(name="say", description="Envoie un message avec le bot")
     async def cmd_say(self, interaction: discord.Interaction, content: str, channel_id: str = None,
                       reply_message_id: str = None):
         
-        if channel_id is None:
-            channel = interaction.channel
-        else:
-            channel = await self.bot.fetch_channel(int(channel_id))
+        if (admin_required(interaction)):
+            if channel_id is None:
+                channel = interaction.channel
+            else:
+                channel = await self.bot.fetch_channel(int(channel_id))
 
-        if reply_message_id is None:
-            await channel.send(content=content)
-        else:
-            message_to_reply_to = await interaction.channel.fetch_message(int(reply_message_id))
-            await message_to_reply_to.reply(content=content)
+            if reply_message_id is None:
+                await channel.send(content=content)
+            else:
+                message_to_reply_to = await interaction.channel.fetch_message(int(reply_message_id))
+                await message_to_reply_to.reply(content=content)
 
-        await interaction.response.send_message(content=f"`{content}` **envoyé dans <#{channel.id}>**",
-                                                ephemeral=True, delete_after=5)
+            await interaction.response.send_message(content=f"`{content}` **envoyé dans <#{channel.id}>**",
+                                                    ephemeral=True, delete_after=5)
+        else : 
+            await interaction.response.send_message("Tu n'as pas la permission.", ephemeral=True)
+
 
     @app_commands.command(name="mp", description="Envoie un message privé avec le bot")
-    async def cmd_mp(self, interaction: discord.Interaction, user_id: str, content: str):
-        try:
-            user_id = int(user_id.replace(" ", ""))
-            user = await self.bot.fetch_user(user_id)
-        except ValueError:
-            await interaction.response.send_message("L'ID utilisateur est invalide.", ephemeral=True, delete_after=5)
-            return
+    async def cmd_mp(self, interaction: discord.Interaction, name: str, content: str):
 
-        await user.send(content)
+        if (admin_required(interaction)):
+            guild = interaction.guild
 
-        await interaction.response.send_message(content=f"`{content}` **envoyé à __{user.name}__**",
-                                                ephemeral=True, delete_after=5)
+            member = discord.utils.find(lambda m: m.name == name, guild.members)
+            user_id =str(member.id)
+            try:
+                user_id = int(user_id.replace(" ", ""))
+                user = await self.bot.fetch_user(user_id)
+            except ValueError:
+                await interaction.response.send_message("L'ID utilisateur est invalide.", ephemeral=True, delete_after=5)
+                return
 
+            await user.send(content)
+
+            await interaction.response.send_message(content=f"`{content}` **envoyé à __{user.name}__**",
+                                                    ephemeral=True, delete_after=5)
+        else : 
+            await interaction.response.send_message("Tu n'as pas la permission.", ephemeral=True)
+    """
 
     @app_commands.command(name="userinfo", description="Envoie les informations sur un utilisateur")
     async def cmd_user_info(self, interaction: discord.Interaction, member_id: str):
+        
         await interaction.response.defer()
 
         try:
             member_id = int(member_id.replace(" ", ""))
+            print(member_id)
             member = await self.guild.fetch_member(member_id)
         except ValueError:
             await interaction.response.send_message("L'ID utilisateur est invalide.", ephemeral=True, delete_after=5)
@@ -97,11 +113,7 @@ class Misc(commands.Cog):
 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-
-def add_banner_to_embed(embed: discord.Embed, filename: str = "baniere.png") -> discord.Embed:
-    embed.set_image(url=f"attachment://{filename}")
-    return embed
-
+    """
 
 
 async def setup(bot: commands.bot.Bot):

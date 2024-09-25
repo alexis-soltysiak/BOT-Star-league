@@ -14,6 +14,8 @@ from bdd.models import Admin
 from variables import * 
 from thefuzz import process 
 
+from help.help_functions import *
+
 # Charger les variables d'environnement
 load_dotenv()
 GUILD_ID           = int(os.getenv('DISCORD_GUILD_ID'))
@@ -97,7 +99,6 @@ class AddPlayerModal(Modal):
         faction = self.faction_input.value.strip()
         liste = self.liste_input.value.strip()
 
-        # Récupérer l'ID Discord du membre correspondant et définir le display_name
         guild = interaction.guild
         if not guild:
             await interaction.response.send_message(
@@ -106,31 +107,30 @@ class AddPlayerModal(Modal):
             )
             return
 
-        # Collecter tous les pseudos des membres (name et display_name)
-        member_names = [member.display_name for member in guild.members] + [member.name for member in guild.members]
+        # Collecter tous les noms d'utilisateur des membres
+        member_names = [member.name for member in guild.members]  # Utiliser seulement le nom d'utilisateur
 
-        # Utiliser thefuzz pour trouver le pseudo le plus proche
-        matched_pseudo, score = process.extractOne(pseudo, member_names)
+        # Utiliser thefuzz pour trouver le nom d'utilisateur le plus proche
+        matched_username, score = process.extractOne(pseudo, member_names)
 
         if score < SCORE_PROXIMITY:
             await interaction.response.send_message(
-                f"Aucun membre avec un pseudo proche de `{pseudo}` trouvé dans ce serveur. Veuillez vérifier le pseudo et réessayer.",
+                f"Aucun membre avec un nom d'utilisateur proche de `{pseudo}` trouvé dans ce serveur. Veuillez vérifier le nom d'utilisateur et réessayer.",
                 ephemeral=True
             )
             return
 
-        # Trouver le membre correspondant au pseudo trouvé
-        member = discord.utils.find(lambda m: m.display_name == matched_pseudo or m.name == matched_pseudo, guild.members)
+        # Trouver le membre correspondant au nom d'utilisateur trouvé
+        member = discord.utils.find(lambda m: m.name == matched_username, guild.members)
 
         if not member:
             await interaction.response.send_message(
-                f"Aucun membre avec le pseudo `{matched_pseudo}` trouvé dans ce serveur. Veuillez vérifier le pseudo et réessayer.",
+                f"Aucun membre avec le nom d'utilisateur `{matched_username}` trouvé dans ce serveur. Veuillez vérifier le nom d'utilisateur et réessayer.",
                 ephemeral=True
             )
             return
 
-
-
+        pseudo = matched_username 
         # VERIFICATION LIGUE
         entered_ligue =  ligue.lower()
         matched_ligue, score = process.extractOne(entered_ligue, VALID_LIGUES)
@@ -204,7 +204,7 @@ class AddPlayerModal(Modal):
             new_player = Player(
                 pseudo=pseudo,
                 discord_id=discord_id,
-                display_name=display_name,
+                display_name=member.display_name,
                 ligue=ligue,
                 poule=poule,
                 faction=faction,
@@ -242,21 +242,12 @@ class AddPlayerModal(Modal):
         # Envoyer l'embed de confirmation à l'utilisateur
         await interaction.response.send_message(
             embed=embed,
-            ephemeral=True
+            ephemeral=False
         )
 
 ################################################################################################################
 # Commande
 ################################################################################################################
-def admin_required(interaction: discord.Interaction) -> bool:
-    cog = interaction.client.get_cog('AdminPlayer')
-    if cog is None:
-        logger.warning("Cog 'AdminPlayer' non trouvé.")
-        return False
-    is_admin = cog.is_user_admin(interaction.user.id)
-    logger.info(f"Vérification admin pour {interaction.user.id}: {is_admin}")
-    return is_admin
-
 
 class AdminPlayer(commands.Cog):
     """
@@ -265,17 +256,6 @@ class AdminPlayer(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
-    def is_user_admin(self, discord_id: int) -> bool:
-            with SessionLocal() as session:
-                admin = session.query(Admin).filter_by(discord_id=str(discord_id), is_admin=True).first()
-                if admin:
-                    logger.info(f"Admin trouvé pour l'ID Discord: {discord_id}")
-                    return True
-                else:
-                    logger.info(f"Aucun admin trouvé pour l'ID Discord: {discord_id}")
-                    return False
-                
                 
     @app_commands.command(name="ajouter_joueur", description="Ajouter un nouveau joueur")
     @app_commands.guilds(GUILD_ID)

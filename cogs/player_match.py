@@ -12,7 +12,8 @@ from bdd.db_config import SessionLocal  # Assurez-vous que le chemin est correct
 from bdd.models import Admin
 import logging
 from thefuzz import process  # Importer la fonction de correspondance
-from cogs.help import add_banner_to_embed
+from help.help_functions import *
+
 
 from variables import *
 
@@ -292,12 +293,6 @@ class RedPlayerModal(Modal):
             return
 
 
-        self.match.player_red        = self.pseudo_input.value
-        self.match.avantage_red      = self.avantage_input.value
-        self.match.vp_red            = self.vp_input.value
-        self.match.kp_red            = self.kp_input.value
-
-
         if isinstance(self.view, MatchInfoView):
             self.view.red_player_button.label        = "✅"
             self.view.red_player_button.style        = ButtonStyle.success
@@ -440,35 +435,49 @@ class ValidateButton(Button):
         self.match = match
 
     async def callback(self, interaction: discord.Interaction):
-        
         db = SessionLocal()
         try:
-            
+
+            match_exists = DataManager.match_exists(
+                player_blue=self.match.player_blue,
+                player_red=self.match.player_red,
+                status=self.match.status
+            )
+
+            if match_exists:
+                await interaction.response.send_message(
+                    "Ce match existe déjà dans la base de données.",
+                    ephemeral=True
+                )
+                return  # Arrêter le processus si le match existe
+
+            # Si le match n'existe pas, procéder à l'enregistrement
             if self.match.status == "poule":
-                ligue_blue , poule_blue = DataManager.get_league_and_group_by_pseudo(self.match.player_blue)
-                ligue_red , poule_red = DataManager.get_league_and_group_by_pseudo(self.match.player_blue)
+                ligue_blue, poule_blue = DataManager.get_league_and_group_by_pseudo(self.match.player_blue)
+                ligue_red, poule_red = DataManager.get_league_and_group_by_pseudo(self.match.player_red)  # Correction ici
+
                 if ligue_blue == ligue_red and poule_blue == poule_red:
                     ligue_entered = ligue_blue
-                    poule_entered = ligue_red
-                else : 
+                    poule_entered = poule_blue
+                else:
                     await interaction.response.send_message(
-                        f"Une erreur s'est produite lors de l'enregistrement du match : {e}\n Les deux joueurs ne sont pas dans la meme ligue pour un match de poule",
+                        "Les deux joueurs ne sont pas dans la même ligue ou poule pour un match de poule.",
                         ephemeral=True
                     )
-            else : 
+                    return
+            else:
                 ligue_entered = ""
                 poule_entered = ""
-    
 
-          
-            if self.match.player_blue == self.match.player_winner :
+            # Déterminer le gagnant
+            if self.match.player_blue == self.match.player_winner:
                 color_winner_entered = "blue"
-            elif self.match.player_red == self.match.player_winner :
+            elif self.match.player_red == self.match.player_winner:
                 color_winner_entered = "red"
-            else : 
+            else:
                 color_winner_entered = ""
-            
 
+            # Créer une nouvelle instance de Match
             new_match = Match(
                 status                 = self.match.status,
                 ligue                  = ligue_entered,
@@ -499,6 +508,7 @@ class ValidateButton(Button):
         finally:
             db.close()
 
+
         # Obtenir le canal de résultats
         resultat_channel = interaction.client.get_channel(RESULTAT_CHANEL_ID)
         if resultat_channel is None:
@@ -507,7 +517,7 @@ class ValidateButton(Button):
 
         # Créer un embed avec les détails du match
         embed = discord.Embed(
-            title=f"**🔵 {new_match.player_blue}** vs **{new_match.player_red} 🔴**",
+            title=f"**🔵 {DataManager.get_display_name_by_pseudo(new_match.player_blue)}** ⚔️ **{DataManager.get_display_name_by_pseudo(new_match.player_red)} 🔴**",
             description=f"\u0085",
             color=discord.Color.green(),
             timestamp=new_match.created_at
@@ -516,7 +526,7 @@ class ValidateButton(Button):
         embed.add_field(name="💎 Statut", value=new_match.status, inline=True)
         embed.add_field(name="🌍 Ligue", value=new_match.ligue, inline=True)
         embed.add_field(name="🎡 Poule", value=new_match.poule, inline=True)
-        embed.add_field(name="🏆 Gagnant", value=new_match.player_winner or "N/A", inline=True)
+        embed.add_field(name="🏆 Gagnant", value= DataManager.get_display_name_by_pseudo(new_match.player_winner) or "N/A", inline=True)
         embed.add_field(name="🥇 Obj. Primaire", value=new_match.objective_primary, inline=True)
         embed.add_field(name="🥈 Obj. Secondaire", value=new_match.objective_secondary, inline=True)
         embed.add_field(name="🔵🎖️ VP ", value=new_match.vp_blue, inline=True)
