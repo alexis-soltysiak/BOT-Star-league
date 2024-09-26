@@ -1,4 +1,3 @@
-import locale
 import platform
 import os
 
@@ -18,12 +17,6 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD_ID = int(os.getenv('DISCORD_GUILD_ID'))
 
-
-os_name = platform.system()
-if os_name == "Windows":
-    locale.setlocale(locale.LC_TIME, "fra")
-elif os_name == "Linux":
-    locale.setlocale(locale.LC_TIME, "fr_FR.UTF-8")
 
 
 bot: commands.bot.Bot = commands.Bot(command_prefix="/", intents=discord.Intents.all())
