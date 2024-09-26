@@ -11,7 +11,7 @@ from bdd.db_config import SessionLocal
 from bdd.models import Base,Player, Match
 import os
 from dotenv import load_dotenv
-from typing import Optional, Tuple
+from typing import Optional, Tuple,List
 
 
 
@@ -57,6 +57,24 @@ class DataManagerFunctions:
         with self.db() as session:
             return session.query(Player).filter(Player.iddiscord == iddiscord).first()
 
+
+    # Nouvelle méthode pour récupérer toutes les ligues
+    def get_all_leagues(self) -> List[str]:
+        with self.db() as session:
+            return [league[0] for league in session.query(Player.ligue).distinct().all()]
+
+    # Nouvelle méthode pour récupérer toutes les poules d'une ligue
+    def get_poules_by_league(self, ligue: str) -> List[str]:
+        with self.db() as session:
+            return [poule[0] for poule in session.query(Player.poule).filter(Player.ligue == ligue).distinct().all()]
+
+    # Nouvelle méthode pour compter les matchs joués dans une ligue et une poule
+    def get_matches_played_count(self, ligue: str, poule: str) -> int:
+        with self.db() as session:
+            return session.query(Match).filter(
+                Match.ligue == ligue,
+                Match.poule == poule,
+            ).count()
 
     # MATCHS
     def add_match(self, match: Match):

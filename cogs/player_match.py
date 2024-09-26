@@ -305,6 +305,8 @@ class RedPlayerModal(Modal):
 # Embed
 ################################################################################################################
 
+
+"""
 def get_open_matches_embed(matches: list[Match]) -> discord.Embed:
     embed = discord.Embed(
         title="Résultats des derniers Matchs",
@@ -363,7 +365,7 @@ def get_open_matches_embed(matches: list[Match]) -> discord.Embed:
     
     return embed
 
-
+"""
 
 ################################################################################################################
 # Views
@@ -592,8 +594,13 @@ class PlayerMatch(commands.Cog):
     async def ajouter_match_command(self, interaction: discord.Interaction):
         new_match = Match()  
         view = MatchInfoView(new_match)  
-        last_matches = DataManager.load_latest_matches(limit=3)  
-        embed = get_open_matches_embed(last_matches)
+
+        embed = discord.Embed(
+            title="Ajouter un match",
+            description="Pöur ajouter un match , remplissez en appuyant sur les 4 bouttons un par un",
+            colour=discord.Color.blue(),
+            timestamp=discord.utils.utcnow()
+        )
         # Ajouter la bannière à l'embed
         add_banner_to_embed(embed)
 

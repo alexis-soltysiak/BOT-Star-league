@@ -1,5 +1,5 @@
 VALID_STATUSES                 = ["poule", "barrage", "quart", "demi", "finale"]
-VALID_LIGUES                   = ["kessel","coruscant","alderaan","tatooine"]
+VALID_LIGUES                   = ["coruscant","alderaan","tatooine","kessel"]
 VALID_POULES                   = ["A","B","C","D"]
 VALID_OBJECTIVES_PRIMARY       = ["close the pocket","bunker assault","breakthrough","intercept signals","recover the research","shifting priorities"]
 VALID_OBJECTIVES_SECONDARY     = ["marked targets","sweep and clear","bring them to heel","surface scan","destroy enemy base","recon mission"]

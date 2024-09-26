@@ -95,7 +95,7 @@ class ClassementView(View):
             button.row = 0  # Première ligne
             self.add_item(button)
 
-        # Boutons pour afficher les classements par ligue (deuxième ligne)
+        # Boutons pour afficher les classements par l/igue (deuxième ligne)
         for ligue in VALID_LIGUES:
             button = RankingLigueButton(ligue)
             button.row = 1  # Deuxième ligne
