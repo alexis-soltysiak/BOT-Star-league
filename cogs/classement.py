@@ -58,6 +58,7 @@ class MatchLigueButton(Button):
             embed.set_footer(text="Image non disponible pour cette ligue.")
             await interaction.response.edit_message(embed=embed, view=self.view)
 
+
 class RankingLigueButton(Button):
     def __init__(self, ligue: str):
         emoji = DICT_EMOJI_LIGUES_DISPLAY.get(ligue.lower(), "")
@@ -81,6 +82,29 @@ class RankingLigueButton(Button):
             embed.set_footer(text="Image de classement non disponible pour cette ligue.")
             await interaction.response.edit_message(embed=embed, view=self.view)
 
+class AdvancedRankingLigueButton(Button):
+    def __init__(self, ligue: str):
+        emoji = DICT_EMOJI_LIGUES_DISPLAY.get(ligue.lower(), "")
+        super().__init__(label=f"{emoji} Rank ++ {ligue.capitalize()}", style=ButtonStyle.success)
+        self.ligue = ligue
+
+    async def callback(self, interaction: discord.Interaction):
+        rankings_by_poule = calculate_rankings_by_ligue_and_poule(self.ligue)
+        embed = create_advanced_combined_rankings_embed(rankings_by_poule, self.ligue)
+        
+        # Chemin vers l'image correspondante
+        image_filename = f"{self.ligue}_classement_avance.png"
+        image_path = os.path.join(MEDIA_PATH, image_filename)
+        
+        # Vérifier si le fichier existe
+        if os.path.isfile(image_path):
+            file = discord.File(image_path, filename=image_filename)
+            embed.set_image(url=f"attachment://{image_filename}")
+            await interaction.response.edit_message(embed=embed, view=self.view, attachments=[file])
+        else:
+            embed.set_footer(text="Image de classement avancé non disponible pour cette ligue.")
+            await interaction.response.edit_message(embed=embed, view=self.view)
+
 ################################################################################################################
 # Vues
 ################################################################################################################
@@ -99,6 +123,13 @@ class ClassementView(View):
         for ligue in VALID_LIGUES:
             button = RankingLigueButton(ligue)
             button.row = 1  # Deuxième ligne
+            self.add_item(button)
+
+
+        # Boutons pour afficher les classements par l/igue (deuxième ligne)
+        for ligue in VALID_LIGUES:
+            button = AdvancedRankingLigueButton(ligue)
+            button.row = 2  # Deuxième ligne
             self.add_item(button)
 
 ################################################################################################################

@@ -1,6 +1,6 @@
 # models.py
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func,Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, func,Boolean,UniqueConstraint, Float
 
 Base = declarative_base()
 
@@ -46,3 +46,21 @@ class Match(Base):
     kp_blue = Column(Integer, nullable=False)
     kp_red = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+# Adding the Classement table
+class Classement(Base):
+    __tablename__ = 'classement'
+    id = Column(Integer, primary_key=True, index=True)
+    ligue = Column(String, nullable=False, index=True)
+    poule = Column(String, nullable=False, index=True)
+    player_pseudo = Column(String, ForeignKey('players.pseudo'), nullable=False, index=True)
+    points = Column(Integer, default=0, nullable=False)
+    vp = Column(Integer, default=0, nullable=False)
+    kp = Column(Integer, default=0, nullable=False)
+    matches_played = Column(Integer, default=0, nullable=False)
+    victories = Column(Integer, default=0, nullable=False)
+    sos = Column(Float, default=0.0, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('ligue', 'poule', 'player_pseudo', name='_ligue_poule_player_uc'),
+    )

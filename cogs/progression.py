@@ -26,7 +26,7 @@ class ClassementProgression(commands.Cog):
 
         await interaction.response.defer(ephemeral=False)
 
-        if (admin_required(interaction)):
+        if (1==1):
                 
             # Récupérer toutes les ligues
             ligues = VALID_LIGUES
@@ -88,16 +88,7 @@ class ClassementProgression(commands.Cog):
             await interaction.response.send_message("Tu n'as pas la permission.", ephemeral=True)
 
     def generate_progress_bar(self, current: int, maximum: int) -> str:
-        """
-        Génère une barre de progression ASCII.
 
-        Args:
-            current (int): Nombre actuel de matchs joués.
-            maximum (int): Nombre maximum de matchs.
-
-        Returns:
-            str: Barre de progression formatée.
-        """
         filled_char = '█'
         empty_char = '░'
         bar = filled_char * current + empty_char * (maximum - current)

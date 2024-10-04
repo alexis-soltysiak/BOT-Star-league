@@ -1,8 +1,9 @@
 import discord
 import logging
-from data_manager import DataManager, Match, Player
+from data_manager import DataManager, Match, Player 
 from bdd.db_config import SessionLocal
-from bdd.models import Admin
+from bdd.models import Admin,Classement
+import functools
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -21,16 +22,13 @@ def admin_required(interaction: discord.Interaction) -> bool:
     logger.info(f"Vérification admin pour {interaction.user.id}: {is_admin}")
     return is_admin
 
-
-
-def calculate_rankings_by_ligue_and_poule(ligue: str) -> dict:
-
-    session = SessionLocal()
+def calculate_rankings_by_ligue_and_poule(ligue: str):
+    session = SessionLocal()  # Create a session instance
     try:
-        # Récupérer tous les joueurs de la ligue
+        # Get all players in the league
         players = session.query(Player).filter(Player.ligue == ligue).all()
 
-        # Organiser les joueurs par poule
+        # Organize players by poule
         players_by_poule = {}
         for player in players:
             poule = player.poule
@@ -39,59 +37,71 @@ def calculate_rankings_by_ligue_and_poule(ligue: str) -> dict:
             players_by_poule[poule][player.pseudo] = {
                 'points': 0,
                 'vp': 0,
+                'kp': 0,
                 'matches_played': 0,
                 'victories': 0,
                 'opponents': set(),
-                'sos': 0.0
+                'sos': 0.0,
+                'head_to_head': {},  # Stores head-to-head results
             }
 
-        # Récupérer tous les matchs de la ligue
+        # Get all matches in the league
         matches = session.query(Match).filter(Match.ligue == ligue).all()
 
+        # Process each match
         for match in matches:
             poule = match.poule
-            # Vérifier si les joueurs sont dans la poule
             stats_blue = players_by_poule.get(poule, {}).get(match.player_blue)
             stats_red = players_by_poule.get(poule, {}).get(match.player_red)
 
-            # Mettre à jour les VP
+            # Update VP
             if stats_blue is not None:
                 stats_blue['vp'] += match.vp_blue
             if stats_red is not None:
                 stats_red['vp'] += match.vp_red
 
-            # Mettre à jour les matchs joués
+            # Update KP
+            if stats_blue is not None:
+                stats_blue['kp'] += match.kp_blue
+            if stats_red is not None:
+                stats_red['kp'] += match.kp_red
+
+            # Update matches played
             if stats_blue is not None:
                 stats_blue['matches_played'] += 1
             if stats_red is not None:
                 stats_red['matches_played'] += 1
 
-            # Mettre à jour les adversaires
+            # Update opponents
             if stats_blue is not None and stats_red is not None:
                 stats_blue['opponents'].add(match.player_red)
                 stats_red['opponents'].add(match.player_blue)
 
-            # Déterminer les points et les victoires
+            # Update points, victories, and head-to-head
             if match.player_winner == match.player_blue:
                 if stats_blue is not None:
                     stats_blue['points'] += 3
                     stats_blue['victories'] += 1
+                    stats_blue['head_to_head'][match.player_red] = stats_blue['head_to_head'].get(match.player_red, 0) + 1
                 if stats_red is not None:
                     stats_red['points'] += 0
             elif match.player_winner == match.player_red:
                 if stats_red is not None:
                     stats_red['points'] += 3
                     stats_red['victories'] += 1
+                    stats_red['head_to_head'][match.player_blue] = stats_red['head_to_head'].get(match.player_blue, 0) + 1
                 if stats_blue is not None:
                     stats_blue['points'] += 0
             else:
-                # Match nul
+                # Draw
                 if stats_blue is not None:
                     stats_blue['points'] += 1
+                    stats_blue['head_to_head'][match.player_red] = stats_blue['head_to_head'].get(match.player_red, 0) + 0.5
                 if stats_red is not None:
                     stats_red['points'] += 1
+                    stats_red['head_to_head'][match.player_blue] = stats_red['head_to_head'].get(match.player_blue, 0) + 0.5
 
-        # Calculer le SoS pour chaque joueur
+        # Calculate SoS for each player
         for poule, players_stats in players_by_poule.items():
             for player_pseudo, stats in players_stats.items():
                 sos_sum = 0.0
@@ -101,33 +111,77 @@ def calculate_rankings_by_ligue_and_poule(ligue: str) -> dict:
                         opponent_victories = opponent_stats['victories']
                         opponent_matches_played = opponent_stats['matches_played']
                         sos_sum += opponent_victories / opponent_matches_played
-                    else:
-                        # Si l'adversaire n'a pas joué de matchs, on ignore pour éviter la division par zéro
-                        continue
-                if stats['matches_played'] > 0:
-                    stats['sos'] = sos_sum / stats['matches_played']
+                if stats['matches_played'] > 0 and len(stats['opponents']) > 0:
+                    stats['sos'] = sos_sum / len(stats['opponents'])
                 else:
                     stats['sos'] = 0.0
 
-        # Créer la liste de classement pour chaque poule
+        # Define the comparison function
+        def compare_players(item1, item2):
+            pseudo1, stats1 = item1
+            pseudo2, stats2 = item2
+
+            # Primary sort: Points
+            if stats1['points'] != stats2['points']:
+                return stats2['points'] - stats1['points']
+
+            # Tie-breaker 1: Head-to-head confrontation
+            h2h1 = stats1['head_to_head'].get(pseudo2, 0)
+            h2h2 = stats2['head_to_head'].get(pseudo1, 0)
+            if h2h1 != h2h2:
+                return int(h2h2 - h2h1)  # Higher head-to-head victories win
+
+            # Tie-breaker 2: SoS
+            if stats1['sos'] != stats2['sos']:
+                return -1 if stats2['sos'] > stats1['sos'] else 1 if stats2['sos'] < stats1['sos'] else 0
+
+            # Tie-breaker 3: KP
+            if stats1['kp'] != stats2['kp']:
+                return stats2['kp'] - stats1['kp']
+
+            # Tie-breaker 4: VP
+            if stats1['vp'] != stats2['vp']:
+                return stats2['vp'] - stats1['vp']
+
+            # If still tied, maintain original order
+            return 0
+
+        # Create the ranking list for each poule
         rankings_by_poule = {}
         for poule, players_stats in players_by_poule.items():
-            # Convertir en liste et trier par points, puis SoS, puis VP
-            ranking_list = sorted(
-                players_stats.items(),
-                key=lambda item: (
-                    -item[1]['points'],    
-                    -item[1]['sos'],       
-                    -item[1]['vp']       
-                )
-            )
+            ranking_list = list(players_stats.items())
+            ranking_list.sort(key=functools.cmp_to_key(compare_players))
             rankings_by_poule[poule] = ranking_list
+
+        # Clear existing classement data for this league
+        session.query(Classement).filter(Classement.ligue == ligue).delete()
+        session.commit()
+
+        # Save the results into the 'classement' table
+        for poule, ranking_list in rankings_by_poule.items():
+            for rank, (player_pseudo, stats) in enumerate(ranking_list, start=1):
+                classement = Classement(
+                    ligue=ligue,
+                    poule=poule,
+                    player_pseudo=player_pseudo,
+                    points=stats['points'],
+                    vp=stats['vp'],
+                    kp=stats['kp'],
+                    matches_played=stats['matches_played'],
+                    victories=stats['victories'],
+                    sos=stats['sos'],
+                )
+                #session.add(classement)
+        #session.commit()
+
     except Exception as e:
         logger.error(f"Erreur lors du calcul du classement pour la ligue {ligue}: {e}")
         rankings_by_poule = {}
     finally:
         session.close()
+
     return rankings_by_poule
+
 
 ################################################################################################################
 # Fonctions Utilitaires
@@ -295,6 +349,47 @@ def create_combined_rankings_embed(rankings_by_poule: dict, ligue: str) -> disco
             embed.add_field(name=poule_title, value=description, inline=False)
     
     return embed
+
+
+
+def create_advanced_combined_rankings_embed(rankings_by_poule: dict, ligue: str) -> discord.Embed:
+
+    embed = discord.Embed(
+        title=f"Classement Avancé pour la ligue {ligue.capitalize()} {DICT_EMOJI_LIGUES_DISPLAY.get(ligue.lower(), '')}",
+        color=discord.Color.dark_gold()
+    )
+    
+    if not rankings_by_poule:
+        embed.description = "Aucun joueur trouvé pour cette ligue."
+    else:
+        # Trier les poules par ordre alphabétique
+        poules_tries = sorted(rankings_by_poule.keys())
+        
+        for poule in poules_tries:
+            ranking_list = rankings_by_poule[poule]
+            
+            # Titre de la poule avec emoji si nécessaire
+            poule_title = f"Poule {poule.capitalize()} {DICT_EMOJI_LIGUES_DISPLAY.get(ligue.lower(), '')}"
+            
+            # En-tête des colonnes
+            description = "```\n"
+            description += f"{'Rk':<3} {'Psd':<5} {'Pts':<4} {'VJ':<3} {'SoS':<5} {'KP':<4} {'VP':<4}\n"
+            description += f"{'-'*3} {'-'*5} {'-'*4} {'-'*3} {'-'*5} {'-'*4} {'-'*4}\n"
+            
+            # Ajout des joueurs dans le classement
+            for rank, (pseudo, stats) in enumerate(ranking_list, start=1):
+                # Limiter le pseudo à 5 caractères avec des ellipses si nécessaire
+                pseudo_display = (pseudo[:5]) if len(pseudo) > 5 else pseudo.ljust(5)
+                sos_display = f"{stats['sos']:.2f}"
+                description += f"{rank:<3} {pseudo_display:<5} {stats['points']:<4} {stats['victories']:<3} {sos_display:<5} {stats['kp']:<4} {stats['vp']:<4}\n"
+            
+            description += "```"
+            
+            # Ajouter le champ avec le classement avancé de la poule
+            embed.add_field(name=poule_title, value=description, inline=False)
+    
+    return embed
+
 
 
 def admin_required(interaction: discord.Interaction) -> bool:
