@@ -23,7 +23,7 @@ bot: commands.bot.Bot = commands.Bot(command_prefix="/", intents=discord.Intents
 guild: discord.Guild
 
 
-cogs = ["cogs.help","cogs.player_match","cogs.admin_player","cogs.classement","cogs.progression"]
+cogs = ["cogs.help","cogs.player_match","cogs.admin_player","cogs.classement","cogs.progression","cogs.stats"]
 
 
 async def setup_cogs():
