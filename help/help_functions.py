@@ -4,6 +4,7 @@ from data_manager import DataManager, Match, Player
 from bdd.db_config import SessionLocal
 from bdd.models import Admin,Classement
 import functools
+import math
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -129,19 +130,19 @@ def calculate_rankings_by_ligue_and_poule(ligue: str):
             h2h1 = stats1['head_to_head'].get(pseudo2, 0)
             h2h2 = stats2['head_to_head'].get(pseudo1, 0)
             if h2h1 != h2h2:
-                return int(h2h2 - h2h1)  # Higher head-to-head victories win
+                return int(h2h1 - h2h2)  # Correction ici
 
             # Tie-breaker 2: SoS
-            if stats1['sos'] != stats2['sos']:
-                return -1 if stats2['sos'] > stats1['sos'] else 1 if stats2['sos'] < stats1['sos'] else 0
+            if not math.isclose(stats1['sos'], stats2['sos'], rel_tol=1e-9):
+                return -1 if stats2['sos'] > stats1['sos'] else 1
 
-            # Tie-breaker 3: KP
-            if stats1['kp'] != stats2['kp']:
-                return stats2['kp'] - stats1['kp']
-
-            # Tie-breaker 4: VP
+            # Tie-breaker 3: VP 
             if stats1['vp'] != stats2['vp']:
                 return stats2['vp'] - stats1['vp']
+            
+            # Tie-breaker 4: KP 
+            if stats1['kp'] != stats2['kp']:
+                return stats2['kp'] - stats1['kp']
 
             # If still tied, maintain original order
             return 0
@@ -373,15 +374,15 @@ def create_advanced_combined_rankings_embed(rankings_by_poule: dict, ligue: str)
             
             # En-tête des colonnes
             description = "```\n"
-            description += f"{'Rk':<3} {'Psd':<5} {'Pts':<4} {'VJ':<3} {'SoS':<5} {'KP':<4} {'VP':<4}\n"
-            description += f"{'-'*3} {'-'*5} {'-'*4} {'-'*3} {'-'*5} {'-'*4} {'-'*4}\n"
+            description += f"{'Rk':<3} {'Psd':<8} {'Pts':<4} {'SoS':<5} {'VP':<4} {'KP':<4}\n"
+            description += f"{'-'*3} {'-'*8} {'-'*4} {'-'*5} {'-'*4} {'-'*4}\n"
             
             # Ajout des joueurs dans le classement
             for rank, (pseudo, stats) in enumerate(ranking_list, start=1):
                 # Limiter le pseudo à 5 caractères avec des ellipses si nécessaire
-                pseudo_display = (pseudo[:5]) if len(pseudo) > 5 else pseudo.ljust(5)
+                pseudo_display = (pseudo[:8]) if len(pseudo) > 5 else pseudo.ljust(8)
                 sos_display = f"{stats['sos']:.2f}"
-                description += f"{rank:<3} {pseudo_display:<5} {stats['points']:<4} {stats['victories']:<3} {sos_display:<5} {stats['kp']:<4} {stats['vp']:<4}\n"
+                description += f"{rank:<3} {pseudo_display:<8} {stats['points']:<4} {sos_display:<5} {stats['vp']:<4} {stats['kp']:<4}\n"
             
             description += "```"
             
